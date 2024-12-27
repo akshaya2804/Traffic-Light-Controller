@@ -1,0 +1,114 @@
+module TrafficLightController (
+input clk, input reset, input pedestrian_request, input emergency_vehicle, input manual_override, output reg [2:0] main_street_light, // 3 bits for Red, Yellow, Green
+output reg [2:0] side_street_light, // 3 bits for Red, Yellow, Green
+output reg pedestrian_light // 1 bit for Walk/Don't Walk
+);
+// State Encoding
+typedef enum logic [2:0] {
+MAIN_GREEN = 3'b000, MAIN_YELLOW = 3'b001, SIDE_GREEN = 3'b010, SIDE_YELLOW = 3'b011, PEDESTRIAN_CROSSING = 3'b100, EMERGENCY_MODE = 3'b101
+} state_t;
+
+state_t current_state, next_state;
+
+// Timings (in clock cycles)
+parameter MAIN_GREEN_TIME = 100;
+parameter MAIN_YELLOW_TIME = 20;
+parameter SIDE_GREEN_TIME = 80;
+parameter SIDE_YELLOW_TIME = 20;
+parameter PEDESTRIAN_CROSSING_TIME = 50;
+
+reg [7:0] timer;
+
+// State Transition Logic
+always @(posedge clk or posedge reset) begin
+if (reset) begin
+current_state <= MAIN_GREEN;
+timer <= 0;
+end else begin
+current_state <= next_state;
+timer <= (current_state == next_state) ? timer + 1 : 0;
+end
+end
+
+// Next State Logic
+always @(*) begin
+case (current_state)
+MAIN_GREEN: begin
+if (emergency_vehicle)
+next_state = EMERGENCY_MODE;
+else if (manual_override)
+next_state = MAIN_GREEN;
+else if (timer >= MAIN_GREEN_TIME)
+next_state = MAIN_YELLOW;
+else
+next_state = MAIN_GREEN;
+end
+
+MAIN_YELLOW: begin
+if (emergency_vehicle)
+next_state = EMERGENCY_MODE;
+else if (timer >= MAIN_YELLOW_TIME)
+next_state = SIDE_GREEN;
+else
+next_state = MAIN_YELLOW;
+end
+
+SIDE_GREEN: begin
+if (emergency_vehicle)
+next_state = EMERGENCY_MODE;
+else if (pedestrian_request)
+next_state = PEDESTRIAN_CROSSING;
+else if (timer >= SIDE_GREEN_TIME)
+next_state = SIDE_YELLOW;
+else
+next_state = SIDE_GREEN;
+end
+
+SIDE_YELLOW: begin
+if (emergency_vehicle)
+next_state = EMERGENCY_MODE;
+else if (timer >= SIDE_YELLOW_TIME)
+next_state = MAIN_GREEN;
+else
+next_state = SIDE_YELLOW;
+end
+
+PEDESTRIAN_CROSSING: begin
+if (timer >= PEDESTRIAN_CROSSING_TIME)
+next_state = MAIN_GREEN;
+else
+next_state = PEDESTRIAN_CROSSING;
+end
+
+EMERGENCY_MODE: begin
+if (!emergency_vehicle)
+next_state = MAIN_GREEN;
+else
+next_state = EMERGENCY_MODE;
+end
+
+default: next_state = MAIN_GREEN;
+endcase
+end
+
+// Output Logic
+always @(*) begin
+main_street_light = 3'b100; // Default Red
+side_street_light = 3'b100; // Default Red
+pedestrian_light = 1'b0; // Default Don't Walk
+
+case (current_state)
+MAIN_GREEN: main_street_light = 3'b001; // Green
+MAIN_YELLOW: main_street_light = 3'b010; // Yellow
+SIDE_GREEN: side_street_light = 3'b001; // Green
+SIDE_YELLOW: side_street_light = 3'b010; // Yellow
+PEDESTRIAN_CROSSING: pedestrian_light = 1'b1; // Walk
+EMERGENCY_MODE: begin
+main_street_light = 3'b001; // Both lights Green for Emergency vehicles
+side_street_light = 3'b001;
+end
+endcase
+end
+
+endmodule
+
