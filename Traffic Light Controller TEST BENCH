@@ -1,0 +1,81 @@
+module TrafficLightController_tb;
+
+// Inputs
+reg clk;
+reg reset;
+reg pedestrian_request;
+reg emergency_vehicle;
+reg manual_override;
+
+// Outputs
+wire [2:0] main_street_light;
+wire [2:0] side_street_light;
+wire pedestrian_light;
+
+// Instantiate the Unit Under Test (UUT)
+TrafficLightController uut (
+.clk(clk),
+.reset(reset),
+.pedestrian_request(pedestrian_request),
+.emergency_vehicle(emergency_vehicle),
+.manual_override(manual_override),
+.main_street_light(main_street_light),
+
+.side_street_light(side_street_light),
+.pedestrian_light(pedestrian_light)
+);
+
+// Clock generation
+always #5 clk = ~clk; // 10ns clock period
+
+// Simulation procedure
+initial begin
+// Initialize Inputs
+clk = 0;
+reset = 1;
+pedestrian_request = 0;
+emergency_vehicle = 0;
+manual_override = 0;
+
+// Wait for global reset to finish
+#10;
+reset = 0;
+
+// Test Case 1: Normal Operation
+#200;
+pedestrian_request = 1;
+#50;
+pedestrian_request = 0;
+
+// Test Case 2: Emergency Vehicle Detected
+
+#300;
+emergency_vehicle = 1;
+#100;
+emergency_vehicle = 0;
+
+// Test Case 3: Manual Override
+#200;
+manual_override = 1;
+#100;
+manual_override = 0;
+
+// Test Case 4: Reset during operation
+#100;
+reset = 1;
+#20;
+reset = 0;
+
+// Finish simulation
+#500;
+$stop;
+end
+
+// Monitor signals
+initial begin
+$monitor(&quot;Time=%0d, Main Street Light=%b, Side Street Light=%b,
+Pedestrian Light=%b&quot;,
+$time, main_street_light, side_street_light, pedestrian_light);
+end
+
+endmodule
